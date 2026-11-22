@@ -7,6 +7,7 @@ from . import models
 from .messaging import router as messaging_router
 from .features import router as features_router
 from .auth import router as auth_router
+from .groups import router as groups_router
 
 @asynccontextmanager
 async def lifespan(app):
@@ -20,6 +21,7 @@ app=FastAPI(title="Riogram API",version="0.5.0",lifespan=lifespan)
 app.include_router(messaging_router)
 app.include_router(features_router)
 app.include_router(auth_router)
+app.include_router(groups_router)
 
 @app.get("/api/v1/health")
 def health():return {"status":"ok","service":"riogram"}
