@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -222,10 +224,27 @@ class _RealConversationState extends State<RealConversation> {
   List<dynamic> messages = [];
   String? error;
   bool sending = false;
+  WebSocketChannel? channel;
+  StreamSubscription<dynamic>? subscription;
   @override
-  void initState() { super.initState(); reload(); }
+  void initState() { super.initState(); reload(); connectRealtime(); }
+  void connectRealtime() {
+    final token = widget.api.token;
+    if (token == null) return;
+    try {
+      final uri = Uri.parse(serverUrl.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://') + '/api/v1/ws');
+      channel = WebSocketChannel.connect(uri);
+      channel!.sink.add(jsonEncode({'token': token}));
+      subscription = channel!.stream.listen((event) {
+        try {
+          final data = jsonDecode(event as String);
+          if (data is Map && data['type'] == 'message' && data['data']?['chat_id'] == widget.chatId) reload();
+        } catch (_) {}
+      }, onError: (_) {}, cancelOnError: true);
+    } catch (_) {}
+  }
   @override
-  void dispose() { input.dispose(); super.dispose(); }
+  void dispose() { subscription?.cancel(); channel?.sink.close(); input.dispose(); super.dispose(); }
   Future<void> reload() async {
     try {
       final result = await widget.api.request('GET', '/chats/${widget.chatId}/messages');
