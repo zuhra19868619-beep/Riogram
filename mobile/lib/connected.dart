@@ -125,6 +125,38 @@ class _RealChatsState extends State<RealChats> {
       if (mounted) setState(() { error = e.toString(); loading = false; });
     }
   }
+  Future<void> findContact() async {
+    final input = TextEditingController();
+    final phone = await showDialog<String>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Поиск контакта'),
+      content: TextField(controller: input, keyboardType: TextInputType.phone,
+        decoration: const InputDecoration(labelText: 'Телефон в формате +998…')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+        FilledButton(onPressed: () => Navigator.pop(context, input.text.trim()), child: const Text('Найти')),
+      ],
+    ));
+    input.dispose();
+    if (phone == null || phone.isEmpty) return;
+    try {
+      final result = await widget.api.request('POST', '/contacts/match', {'phones': [phone]});
+      final contacts = result['contacts'] as List;
+      if (!mounted) return;
+      if (contacts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Контакт пока не зарегистрирован')));
+        return;
+      }
+      final recipientId = contacts.first['id'] as String;
+      final chat = await widget.api.request('POST', '/chats/direct', {'recipient_id': recipientId});
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+        RealConversation(api: widget.api, chatId: chat['id'] as String, userId: widget.userId)));
+      reload();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   Future<void> newChat() async {
     final input = TextEditingController();
     final result = await showDialog<String>(context: context, builder: (context) => AlertDialog(
@@ -151,6 +183,7 @@ class _RealChatsState extends State<RealChats> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Riogram — чаты'), actions: [
+      IconButton(onPressed: findContact, icon: const Icon(Icons.person_search), tooltip: 'Найти контакт'),
       IconButton(onPressed: reload, icon: const Icon(Icons.refresh), tooltip: 'Обновить'),
       IconButton(onPressed: widget.onLogout, icon: const Icon(Icons.logout), tooltip: 'Выйти'),
     ]),
