@@ -251,6 +251,38 @@ class _RealConversationState extends State<RealConversation> {
       if (mounted) setState(() { messages = result as List; error = null; });
     } catch (e) { if (mounted) setState(() => error = e.toString()); }
   }
+  Future<void> messageActions(Map<String, dynamic> message) async {
+    if (message['sender_id'] != widget.userId) return;
+    final action = await showModalBottomSheet<String>(context: context, builder: (context) =>
+      SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Редактировать'),
+          onTap: () => Navigator.pop(context, 'edit')),
+        ListTile(leading: const Icon(Icons.delete_outline), title: const Text('Удалить'),
+          onTap: () => Navigator.pop(context, 'delete')),
+      ])));
+    if (action == null) return;
+    try {
+      if (action == 'delete') {
+        await widget.api.request('DELETE', '/messages/${message['id']}');
+      } else {
+        final editController = TextEditingController(text: message['text'].toString());
+        final newText = await showDialog<String>(context: context, builder: (context) =>
+          AlertDialog(title: const Text('Изменить сообщение'),
+            content: TextField(controller: editController, autofocus: true, maxLines: 3),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+              FilledButton(onPressed: () => Navigator.pop(context, editController.text.trim()),
+                child: const Text('Сохранить')),
+            ]));
+        editController.dispose();
+        if (newText == null || newText.isEmpty) return;
+        await widget.api.request('PATCH', '/messages/${message['id']}', {'text': newText});
+      }
+      await reload();
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    }
+  }
   Future<void> send() async {
     final text = input.text.trim();
     if (text.isEmpty || sending) return;
@@ -277,7 +309,9 @@ class _RealConversationState extends State<RealConversation> {
         children: [
           for (final msg in messages) Align(
             alignment: msg['sender_id'] == widget.userId ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
+            child: GestureDetector(
+              onLongPress: () => messageActions(Map<String, dynamic>.from(msg as Map)),
+              child: Container(
               constraints: const BoxConstraints(maxWidth: 300),
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               padding: const EdgeInsets.all(12),
@@ -285,7 +319,7 @@ class _RealConversationState extends State<RealConversation> {
                 color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(14)),
               child: Text(msg['text'].toString()),
-            ),
+            )),
           ),
         ],
       ))),
