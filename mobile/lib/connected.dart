@@ -127,6 +127,36 @@ class _RealChatsState extends State<RealChats> {
       if (mounted) setState(() { error = e.toString(); loading = false; });
     }
   }
+  Future<void> newGroup() async {
+    final title = TextEditingController();
+    final members = TextEditingController();
+    final result = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Создать группу'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: title, decoration: const InputDecoration(labelText: 'Название группы')),
+        TextField(controller: members, decoration: const InputDecoration(
+          labelText: 'ID участников через запятую', helperText: 'UUID пользователей')),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Создать')),
+      ],
+    ));
+    final groupTitle = title.text.trim();
+    final ids = members.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    title.dispose();
+    members.dispose();
+    if (result != true || groupTitle.isEmpty || ids.isEmpty) return;
+    try {
+      final group = await widget.api.request('POST', '/groups', {'title': groupTitle, 'member_ids': ids});
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+        RealConversation(api: widget.api, chatId: group['id'] as String, userId: widget.userId)));
+      reload();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
   Future<void> findContact() async {
     final input = TextEditingController();
     final phone = await showDialog<String>(context: context, builder: (context) => AlertDialog(
@@ -185,6 +215,7 @@ class _RealChatsState extends State<RealChats> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Riogram — чаты'), actions: [
+      IconButton(onPressed: newGroup, icon: const Icon(Icons.group_add_outlined), tooltip: 'Создать группу'),
       IconButton(onPressed: findContact, icon: const Icon(Icons.person_search), tooltip: 'Найти контакт'),
       IconButton(onPressed: reload, icon: const Icon(Icons.refresh), tooltip: 'Обновить'),
       IconButton(onPressed: widget.onLogout, icon: const Icon(Icons.logout), tooltip: 'Выйти'),
