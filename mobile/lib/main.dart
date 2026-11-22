@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'connected.dart';
 
 const apiUrl = String.fromEnvironment('RIOGRAM_API_URL',
     defaultValue: 'https://riogram-api-r26.onrender.com');
@@ -107,10 +108,10 @@ class _RiogramHomeState extends State<RiogramHome> {
             onPressed: checkServer,
           ),
           IconButton(
-            tooltip: 'Профиль',
+            tooltip: 'Реальный вход',
             icon: const Icon(Icons.account_circle_outlined),
             onPressed: () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => const ProfilePage())),
+              builder: (_) => const ConnectedApp())),
           ),
         ],
       ),
@@ -267,6 +268,12 @@ class _RiogramHomeState extends State<RiogramHome> {
       title: const Text('Безопасность'),
       subtitle: const Text('Регистрация и защита сессий — в разработке'),
       onTap: () => showUnavailable('Безопасность'),
+    ),
+    ListTile(
+      leading: const Icon(Icons.login),
+      title: const Text('Войти и открыть настоящие чаты'),
+      subtitle: const Text('Требуется настроенный SMS-провайдер'),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConnectedApp())),
     ),
     const ListTile(
       leading: Icon(Icons.info_outline),
