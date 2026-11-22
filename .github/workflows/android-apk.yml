@@ -1,0 +1,37 @@
+name: Android APK build
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate native Android and iOS scaffolding
+        working-directory: mobile
+        run: flutter create --platforms=android,ios --project-name riogram .
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+      - name: Run Flutter tests
+        working-directory: mobile
+        run: flutter test
+      - name: Build debug APK
+        working-directory: mobile
+        run: flutter build apk --debug
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: riogram-debug-apk
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
