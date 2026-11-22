@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from .database import engine
+from .messaging import router as messaging_router
 
-app = FastAPI(title="Riogram API", version="0.2.0")
+app = FastAPI(title="Riogram API", version="0.3.0")
+app.include_router(messaging_router)
 
 @app.get("/api/v1/health")
 def health():
@@ -10,7 +12,6 @@ def health():
 
 @app.get("/api/v1/health/database")
 def database_health():
-    from fastapi import HTTPException
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
