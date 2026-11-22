@@ -88,7 +88,7 @@ def messages(chat_id: uuid.UUID, db: DB, user: UserDep, limit: int = 50):
     return [as_message(row) for row in reversed(rows)]
 
 @router.post("/chats/{chat_id}/messages", status_code=201)
-def send(chat_id: uuid.UUID, data: MessageRequest, db: DB, user: UserDep):
+async def send(chat_id: uuid.UUID, data: MessageRequest, db: DB, user: UserDep):
     require_member(db, str(chat_id), user.id)
     existing = db.scalar(select(Message).where(Message.sender_id == user.id, Message.client_message_id == data.client_message_id))
     if existing:
@@ -99,6 +99,14 @@ def send(chat_id: uuid.UUID, data: MessageRequest, db: DB, user: UserDep):
     db.add(message)
     db.commit()
     db.refresh(message)
+    from .features import hub
+    from .notifications import push_to_users
+    recipients = db.scalars(select(ChatMember.user_id).where(
+        ChatMember.chat_id == str(chat_id), ChatMember.user_id != user.id)).all()
+    event = {"type": "message", "data": as_message(message)}
+    for recipient in recipients:
+        await hub.send(recipient, event)
+    push_to_users(db, recipients, "Riogram", "Новое сообщение")
     return as_message(message)
 
 @router.patch("/messages/{message_id}")
