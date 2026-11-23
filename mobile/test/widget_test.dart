@@ -15,7 +15,7 @@ void main() {
 
   testWidgets('Login validates phone and reports server errors', (tester) async {
     await tester.pumpWidget(const RiogramApp());
-    expect(find.text('Получить код'), findsOneWidget);
+    expect(find.text('ПРОДОЛЖИТЬ'), findsOneWidget);
     expect(find.text('Изменить номер'), findsNothing);
   });
 }
