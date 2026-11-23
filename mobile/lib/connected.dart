@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
 const serverUrl = String.fromEnvironment('RIOGRAM_API_URL', defaultValue: 'https://riogram-api-r26.onrender.com');
@@ -46,29 +47,73 @@ class _ConnectedAppState extends State<ConnectedApp> {
   @override
   void dispose() { phone.dispose(); code.dispose(); super.dispose(); }
 
+  String? verificationId;
+  int? resendToken;
+
+  Future<void> finishFirebaseLogin(UserCredential credential) async {
+    final firebaseUser = credential.user;
+    if (firebaseUser == null) throw StateError('Firebase не вернул пользователя');
+    final idToken = await firebaseUser.getIdToken(true);
+    if (idToken == null) throw StateError('Firebase не выдал токен');
+    final result = await api.request('POST', '/auth/firebase-login',
+        {'id_token': idToken});
+    api.token = result['access_token'] as String;
+    if (mounted) setState(() => userId = result['user_id'] as String);
+  }
+
   Future<void> submit() async {
+    if (busy) return;
     setState(() { busy = true; error = null; });
     try {
       if (!requested) {
-        await api.request('POST', '/auth/request-code', {'phone_number': phone.text.replaceAll(RegExp(r'[^+0-9]'), '')});
-        if (mounted) setState(() => requested = true);
+        final number = phone.text.replaceAll(RegExp(r'[^+0-9]'), '');
+        if (!RegExp(r'^\\+[1-9][0-9]{7,14}$').hasMatch(number)) {
+          throw FormatException('Введите номер в международном формате: +998901234567');
+        }
+        await FirebaseAuth.instance.verifyPhoneNumber(
+          phoneNumber: number,
+          forceResendingToken: resendToken,
+          verificationCompleted: (credential) async {
+            try {
+              final signedIn = await FirebaseAuth.instance.signInWithCredential(credential);
+              await finishFirebaseLogin(signedIn);
+            } catch (e) {
+              if (mounted) setState(() => error = e.toString());
+            }
+          },
+          verificationFailed: (exception) {
+            if (mounted) setState(() { error = exception.message ?? exception.code; busy = false; });
+          },
+          codeSent: (id, token) {
+            if (mounted) setState(() {
+              verificationId = id;
+              resendToken = token;
+              requested = true;
+              busy = false;
+            });
+          },
+          codeAutoRetrievalTimeout: (id) { verificationId = id; },
+          timeout: const Duration(seconds: 60),
+        );
       } else {
-        final result = await api.request('POST', '/auth/verify-code',
-            {'phone_number': phone.text.replaceAll(RegExp(r'[^+0-9]'), ''), 'code': code.text.trim()});
-        api.token = result['access_token'] as String;
-        if (mounted) setState(() => userId = result['user_id'] as String);
+        if (verificationId == null) throw StateError('Запросите SMS-код заново');
+        final credential = PhoneAuthProvider.credential(
+          verificationId: verificationId!, smsCode: code.text.trim());
+        final signedIn = await FirebaseAuth.instance.signInWithCredential(credential);
+        await finishFirebaseLogin(signedIn);
       }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted && (requested || error != null)) setState(() => busy = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (userId != null) return RealChats(api: api, userId: userId!, onLogout: () {
-      setState(() { api.token = null; userId = null; requested = false; code.clear(); });
+      FirebaseAuth.instance.signOut();
+      setState(() { api.token = null; userId = null; requested = false; verificationId = null; code.clear(); });
     });
     return Scaffold(
       body: SafeArea(child: Center(child: ConstrainedBox(
@@ -117,7 +162,7 @@ class _ConnectedAppState extends State<ConnectedApp> {
             setState(() { requested = false; code.clear(); error = null; }),
             child: const Text('Изменить номер телефона')),
           const SizedBox(height: 26),
-          Text('Для получения SMS необходим подключённый сервис подтверждения.',
+          Text('SMS-код отправляется через Firebase Authentication.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ]),
