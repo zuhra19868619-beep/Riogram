@@ -27,6 +27,11 @@ jobs:
       - name: Generate native Android and iOS scaffolding
         working-directory: mobile
         run: flutter create --platforms=android,ios --project-name riogram .
+      - name: Match Firebase Android application ID
+        working-directory: mobile
+        run: |
+          sed -i 's/applicationId = "com.example.riogram"/applicationId = "com.riogram.app"/' android/app/build.gradle.kts
+          grep -F 'applicationId = "com.riogram.app"' android/app/build.gradle.kts
       - name: Install dependencies
         working-directory: mobile
         run: flutter pub get
