@@ -65,3 +65,54 @@ def verify_code(body:VerifyRequest,db:DB):
     expires=datetime.now(timezone.utc)+timedelta(hours=12)
     access_token=jwt.encode({"sub":user.id,"aud":"riogram","exp":expires},secret,algorithm="HS256")
     return {"access_token":access_token,"token_type":"bearer","expires_in":43200,"user_id":user.id}
+
+
+class FirebaseLoginRequest(BaseModel):
+    id_token: str
+
+@router.post("/firebase-login")
+def firebase_login(body: FirebaseLoginRequest, db: DB):
+    """Exchange a verified Firebase phone-auth ID token for a Riogram session."""
+    import firebase_admin
+    from firebase_admin import auth as firebase_auth
+    from firebase_admin import credentials
+    project_id = os.getenv("FIREBASE_PROJECT_ID", "").strip()
+    secret = os.getenv("JWT_SECRET", "")
+    if not project_id or len(secret) < 32:
+        raise HTTPException(503, "Firebase authentication not configured")
+    if not firebase_admin._apps:
+        service_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
+        if service_json:
+            import json
+            try:
+                cred = credentials.Certificate(json.loads(service_json))
+                firebase_admin.initialize_app(cred, {"projectId": project_id})
+            except (ValueError, KeyError, TypeError):
+                raise HTTPException(503, "Firebase credentials invalid")
+        else:
+            try:
+                firebase_admin.initialize_app(options={"projectId": project_id})
+            except ValueError:
+                raise HTTPException(503, "Firebase credentials unavailable")
+    try:
+        claims = firebase_auth.verify_id_token(body.id_token, check_revoked=True)
+    except (ValueError, firebase_auth.InvalidIdTokenError,
+            firebase_auth.ExpiredIdTokenError,
+            firebase_auth.RevokedIdTokenError,
+            firebase_auth.UserDisabledError):
+        raise HTTPException(401, "Invalid Firebase token")
+    if claims.get("firebase", {}).get("sign_in_provider") != "phone":
+        raise HTTPException(403, "Phone authentication required")
+    phone = claims.get("phone_number", "")
+    validate_phone(phone)
+    user = db.scalar(select(User).where(User.phone_number == phone))
+    if user is None:
+        user = User(phone_number=phone)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    expires = datetime.now(timezone.utc) + timedelta(hours=12)
+    access_token = jwt.encode({"sub": user.id, "aud": "riogram", "exp": expires},
+                              secret, algorithm="HS256")
+    return {"access_token": access_token, "token_type": "bearer",
+            "expires_in": 43200, "user_id": user.id}
