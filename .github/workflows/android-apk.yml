@@ -41,6 +41,15 @@ jobs:
       - name: Build debug APK
         working-directory: mobile
         run: flutter build apk --debug
+      - name: Print APK signing certificate SHA-1 and SHA-256
+        run: |
+          set -euo pipefail
+          APK="mobile/build/app/outputs/flutter-apk/app-debug.apk"
+          test -f "$APK"
+          echo "### Riogram debug APK signing certificate" >> "$GITHUB_STEP_SUMMARY"
+          keytool -printcert -jarfile "$APK" | tee /tmp/riogram-cert.txt
+          grep -E 'SHA1:|SHA256:' /tmp/riogram-cert.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "These fingerprints apply only to this debug APK signing certificate." >> "$GITHUB_STEP_SUMMARY"
       - name: Prepare named APK
         run: cp mobile/build/app/outputs/flutter-apk/app-debug.apk riogram-debug.apk
       - name: Upload APK artifact
