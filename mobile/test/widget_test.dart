@@ -5,10 +5,10 @@ import 'package:riogram/main.dart';
 void main() {
   testWidgets('First launch requires phone registration', (tester) async {
     await tester.pumpWidget(const RiogramApp());
-    expect(find.text('Riogram — вход'), findsOneWidget);
-    expect(find.text('Войти по номеру телефона'), findsOneWidget);
+    expect(find.text('Ваш номер телефона'), findsOneWidget);
+    expect(find.text('Пожалуйста, подтвердите код страны и введите номер телефона.'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('Получить код'), findsOneWidget);
+    expect(find.text('ПРОДОЛЖИТЬ'), findsOneWidget);
     expect(find.text('Александр'), findsNothing);
     expect(find.text('Чаты'), findsNothing);
   });
