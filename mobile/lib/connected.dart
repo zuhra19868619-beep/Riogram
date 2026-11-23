@@ -50,11 +50,11 @@ class _ConnectedAppState extends State<ConnectedApp> {
     setState(() { busy = true; error = null; });
     try {
       if (!requested) {
-        await api.request('POST', '/auth/request-code', {'phone_number': phone.text.trim()});
+        await api.request('POST', '/auth/request-code', {'phone_number': phone.text.replaceAll(RegExp(r'[^+0-9]'), '')});
         if (mounted) setState(() => requested = true);
       } else {
         final result = await api.request('POST', '/auth/verify-code',
-            {'phone_number': phone.text.trim(), 'code': code.text.trim()});
+            {'phone_number': phone.text.replaceAll(RegExp(r'[^+0-9]'), ''), 'code': code.text.trim()});
         api.token = result['access_token'] as String;
         if (mounted) setState(() => userId = result['user_id'] as String);
       }
@@ -71,36 +71,57 @@ class _ConnectedAppState extends State<ConnectedApp> {
       setState(() { api.token = null; userId = null; requested = false; code.clear(); });
     });
     return Scaffold(
-      appBar: AppBar(title: const Text('Riogram — вход')),
-      body: Center(child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 430),
-        child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(24), children: [
-          const Icon(Icons.forum_rounded, size: 76),
-          const SizedBox(height: 18),
-          Text('Войти по номеру телефона', style: Theme.of(context).textTheme.headlineSmall, textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          TextField(controller: phone, enabled: !requested && !busy,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(labelText: 'Телефон +998...', border: OutlineInputBorder())),
-          if (requested) ...[
-            const SizedBox(height: 14),
-            TextField(controller: code, enabled: !busy, keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Код из SMS', border: OutlineInputBorder())),
-          ],
+      body: SafeArea(child: Center(child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: ListView(shrinkWrap: true, padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30), children: [
+          Center(child: Container(width: 108, height: 108,
+            decoration: const BoxDecoration(color: Color(0xFF3390EC), shape: BoxShape.circle),
+            child: const Icon(Icons.send_rounded, color: Colors.white, size: 55))),
+          const SizedBox(height: 30),
+          Text(requested ? 'Подтверждение номера' : 'Ваш номер телефона',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+          const SizedBox(height: 12),
+          Text(requested
+              ? 'Введите код из SMS, отправленный на ${phone.text.trim()}'
+              : 'Пожалуйста, подтвердите код страны и введите номер телефона.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 34),
+          if (!requested) TextField(
+            key: const Key('phone-input'), controller: phone, enabled: !busy,
+            keyboardType: TextInputType.phone, autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Номер телефона', hintText: '+998 90 123 45 67',
+              prefixIcon: Icon(Icons.phone_outlined))),
+          if (requested) TextField(
+            key: const Key('sms-code-input'), controller: code, enabled: !busy,
+            autofocus: true, keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Код подтверждения',
+              prefixIcon: Icon(Icons.lock_outline))),
           if (error != null) ...[
             const SizedBox(height: 14),
-            Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(error!, textAlign: TextAlign.center,
+              style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
-          const SizedBox(height: 18),
-          FilledButton(onPressed: busy ? null : submit,
-            child: Text(busy ? 'Подождите…' : requested ? 'Подтвердить код' : 'Получить код')),
-          if (requested) TextButton(onPressed: busy ? null : () => setState(() => requested = false),
-            child: const Text('Изменить номер')),
-          const SizedBox(height: 20),
-          const Text('Для настоящего SMS требуется настройка Twilio на сервере. Демо-коды не принимаются.',
-            textAlign: TextAlign.center),
+          const SizedBox(height: 24),
+          SizedBox(height: 52, child: FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3390EC)),
+            onPressed: busy ? null : submit,
+            child: busy ? const SizedBox(width: 20, height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text(requested ? 'ВОЙТИ' : 'ПРОДОЛЖИТЬ',
+                style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+          )),
+          if (requested) TextButton(onPressed: busy ? null : () =>
+            setState(() { requested = false; code.clear(); error = null; }),
+            child: const Text('Изменить номер телефона')),
+          const SizedBox(height: 26),
+          Text('Для получения SMS необходим подключённый сервис подтверждения.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ]),
-      )),
+      ))),
     );
   }
 }
