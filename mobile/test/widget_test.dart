@@ -3,27 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/main.dart';
 
 void main() {
-  testWidgets('Riogram shows chats and navigation', (tester) async {
+  testWidgets('First launch requires phone registration', (tester) async {
     await tester.pumpWidget(const RiogramApp());
-    expect(find.text('Riogram'), findsOneWidget);
-    expect(find.text('Чаты'), findsWidgets);
-    expect(find.text('Контакты'), findsOneWidget);
-    expect(find.text('Звонки'), findsOneWidget);
-    expect(find.text('Настройки'), findsOneWidget);
+    expect(find.text('Riogram — вход'), findsOneWidget);
+    expect(find.text('Войти по номеру телефона'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Получить код'), findsOneWidget);
+    expect(find.text('Александр'), findsNothing);
+    expect(find.text('Чаты'), findsNothing);
   });
 
-  testWidgets('Contact tab shows synchronization action', (tester) async {
+  testWidgets('Login validates phone and reports server errors', (tester) async {
     await tester.pumpWidget(const RiogramApp());
-    await tester.tap(find.text('Контакты'));
-    await tester.pump();
-    expect(find.text('Синхронизировать контакты'), findsOneWidget);
-  });
-
-  testWidgets('Chat opens a demo conversation', (tester) async {
-    await tester.pumpWidget(const RiogramApp());
-    await tester.tap(find.text('Александр'));
-    await tester.pumpAndSettle();
-    expect(find.text('Демо: сообщения не отправляются на сервер'), findsOneWidget);
-    expect(find.byIcon(Icons.send), findsOneWidget);
+    expect(find.text('Получить код'), findsOneWidget);
+    expect(find.text('Изменить номер'), findsNothing);
   });
 }
