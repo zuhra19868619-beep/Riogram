@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'connected.dart';
 
-void main() => runApp(const RiogramApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: const FirebaseOptions(
+    apiKey: 'AIzaSyCJFkbPCut9WUiEnQ3rFaQaqkVVRuEPVxk',
+    appId: '1:166364616941:android:d71697186741571a6014e4',
+    messagingSenderId: '166364616941',
+    projectId: 'riogram-941b6',
+    storageBucket: 'riogram-941b6.firebasestorage.app',
+  ));
+  runApp(const RiogramApp());
+}
 
 class RiogramApp extends StatefulWidget {
   const RiogramApp({super.key});
