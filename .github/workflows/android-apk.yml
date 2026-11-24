@@ -45,11 +45,14 @@ jobs:
         run: |
           set -euo pipefail
           APK="mobile/build/app/outputs/flutter-apk/app-debug.apk"
-          test -f "$APK"
-          echo "### Riogram debug APK signing certificate" >> "$GITHUB_STEP_SUMMARY"
-          keytool -printcert -jarfile "$APK" | tee /tmp/riogram-cert.txt
-          grep -E 'SHA1:|SHA256:' /tmp/riogram-cert.txt | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "These fingerprints apply only to this debug APK signing certificate." >> "$GITHUB_STEP_SUMMARY"
+          APKSIGNER=$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --print-certs "$APK" | tee riogram-certificates.txt
+          cat riogram-certificates.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: riogram-signing-fingerprints
+          path: riogram-certificates.txt
       - name: Prepare named APK
         run: cp mobile/build/app/outputs/flutter-apk/app-debug.apk riogram-debug.apk
       - name: Upload APK artifact
