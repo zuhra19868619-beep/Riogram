@@ -67,7 +67,7 @@ class _ConnectedAppState extends State<ConnectedApp> {
     try {
       if (!requested) {
         final number = phone.text.replaceAll(RegExp(r'[^+0-9]'), '');
-        if (!RegExp(r'^\+[1-9][0-9]{7,14}).hasMatch(number)) {
+        if (!RegExp(r'^\+[1-9][0-9]{7,14}$').hasMatch(number)) {
           throw FormatException('Введите номер в международном формате: +998901234567');
         }
         await FirebaseAuth.instance.verifyPhoneNumber(
